@@ -1,27 +1,27 @@
 require 'srt'
 require 'nokogiri'
+require './template.rb'
 
 def buildXML 
 	srt_file = SRT::File.parse(File.new(ARGV[0])) 
 
 	xml_file = ARGV[1] 
 
-	template = Nokogiri::XML(File.open('./example.xml'))
-	
-	# teiHeader, can be done later... 
-		# format: template.at('date')['value'] = ? 
-		# template.at('title')['value'] = ? 
+	template = Nokogiri::XML(@template.to_xml)
 
 	# timeline
 	current_timeline_element = template.at('#timepoint_begin')
 	numLines = srt_file.lines.size 
 
+	# total duration 
+	duration = template.at('recording')
+	duration['dur'] = srt_time_to_milliseconds(srt_file.lines.last.end_time) + 'ms'
+
 	#transcript 
 	transcript_div = Nokogiri::XML::Node.new("div1", template) 
 	transcript_div['id'] = 'transcript.1' 
 	transcript_div['n'] = 'Transcript'
-	template.at('timeline').add_next_sibling(transcript_div) 
-
+	template.at('timeline').add_next_sibling(transcript_div).add_next_sibling("\n")
 
 	srt_file.lines.each_with_index do |line, i| 
 		current_timeline_element = addTimelineElement(template, line, current_timeline_element, i)
@@ -32,8 +32,9 @@ def buildXML
 			end_timeline = Nokogiri::XML::Node.new("when", template)
 			end_timeline['id'] = 'timepoint_end'
 			end_timeline['since'] = 'timepoint_begin'
-			end_timeline['interval'] = ((line.end_time * 1000).floor).to_s
+			end_timeline['interval'] = srt_time_to_milliseconds(line.end_time)
 			current_timeline_element.add_next_sibling(end_timeline)
+			current_timeline_element.add_next_sibling("\n")
 		end 
 	end 
 
@@ -48,17 +49,18 @@ def addTimelineElement(template, line, current, index)
 	time_point['id'] = 'timepoint_' + (index + 1).to_s 
 	time_point['since'] = 'timepoint_begin'
 			
-	#to milliseconds, floor might cause problems, consider to_i		
-	time_point['interval'] = ((line.start_time * 1000).floor).to_s
+	time_point['interval'] = srt_time_to_milliseconds(line.start_time)
 
 	current.add_next_sibling(time_point)
+	current.add_next_sibling("\n")
 
 	return time_point
 end 
 
+
 def addTranscriptElement(template, line, parentDiv, index)
 	# wrapper 
-	transcript_point = Nokogiri::XML::Node.new('u', template)
+	transcript_point = Nokogiri::XML::Node.new("u", template)
 	transcript_point['rend'] = 'transcript_chunk'
 	transcript_point['start'] = 'timepoint_' + (index + 1).to_s 
 	transcript_point['n'] = index + 1
@@ -66,20 +68,25 @@ def addTranscriptElement(template, line, parentDiv, index)
 
 	# subtitle 
 
-	subtitle = Nokogiri::XML::Node.new('u', template)
+	subtitle = Nokogiri::XML::Node.new("u", template)
 	subtitle.content = line.text.join(" ")
 
+	transcript_point.add_child("\n")
 	transcript_point.add_child(subtitle)
+	transcript_point.add_child("\n")
 	parentDiv.add_child(transcript_point)
 
 end
-
-# options here are to build the template in this function
-# or to use a supplied template and edit it. 
+ 
 def writeXML(output, xml_file) 
 	File.open(xml_file, 'w') do |f| 
 		f.puts output.to_xml
 	end 
+end 
+
+
+def srt_time_to_milliseconds(time) 
+	return ((time * 1000).floor).to_s
 end 
 
 # input 

@@ -35,7 +35,7 @@ require 'nokogiri'
 				}
 				xml.sourceDesc {
 					xml.recordingStmt {
-						# add total duration here 
+						# add total duration here, 
 						xml.recording("type" => "audio") {
 							xml.date
 							xml.equipment {
