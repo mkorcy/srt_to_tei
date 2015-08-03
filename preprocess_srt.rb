@@ -1,14 +1,16 @@
 def buildSRT
-  input_file = File.new(ARGV[0]) 
+  input_file = File.new(ARGV[0])
+
 	output_file = File.new(ARGV[1], 'w')
   segment_count = 1
   segment_markers = {}
   minute_marker = 4 #default position of minutes in timestamp character array
 
-  # two passes, first gets the markers 
+  # two passes, first gets the markers
 
   input_file.each do |line|
-    if line[/^\[/]
+
+    if line[/^\[\d+/]
       last_colon = line.rindex(':')
       time_stamp = line.chomp.gsub('[','').gsub(']','')
       time_stamp[last_colon - 1] = ','
@@ -27,21 +29,21 @@ def buildSRT
     last_time_marker[minute_marker] = '0'
     minute_marker -=1
   end
-    
+
   last_time_marker[minute_marker] = (last_time_marker[minute_marker].to_i + 1).to_s
   segment_markers[segment_count] = last_time_marker
-  
+
   # reset segment count for 2nd pass
   input_file.seek 0
   segment_count = 1
 
   input_file.each do |line|
-    if line[/^\[/]
-      output_file.puts segment_count.to_s 
+    if line[/^\[\d+/]
+      output_file.puts segment_count.to_s
       output_file.puts segment_markers[segment_count] + ' --> ' + segment_markers[segment_count + 1]
       segment_count +=1
-    else 
-      output_file.write line 
+    else
+      output_file.write line.gsub('>>','').squeeze(' ').strip
     end
   end
 
@@ -49,10 +51,11 @@ def buildSRT
 
 end
 
-# input 
+# input
 case ARGV.size
-when 0, 1 
+when 0, 1
 	puts "invalid input. Usage: ruby preprocess_srt [transcript.txt] [OUTPUT_FILE.srt]"
 when 2
+	puts "building SRT"
 	buildSRT
-end 
+end
